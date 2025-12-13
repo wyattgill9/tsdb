@@ -6,6 +6,7 @@
   };
 
   outputs = {
+    self,
     nixpkgs,
     ...
   }: let
@@ -15,23 +16,17 @@
         f {
           inherit system;
           pkgs = nixpkgs.legacyPackages.${system};
-          toolchain = nixpkgs.legacyPackages.${system}.llvmPackages_latest;
         });
   in {
     packages = eachSystem ({
       pkgs,
-      toolchain,
       ...
     }: {
-      default = import ./package.nix {inherit pkgs toolchain;};
+      default = pkgs.callPackage ./package.nix {};
     });
 
-    devShells = eachSystem ({
-      pkgs,
-      toolchain,
-      ...
-    }: {
-      default = import ./shell.nix {inherit pkgs toolchain;};
+    devShells = eachSystem ({system, ...}: {
+      default = (self.packages.${system} or {}).default;
     });
   };
 }
