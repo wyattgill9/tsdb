@@ -1,7 +1,3 @@
-#include "toolkit.hh"
-
-#include <variant>
-
-auto main() -> i32 {
+auto main() -> int {
     return 0;
 }

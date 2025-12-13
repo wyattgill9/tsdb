@@ -6,7 +6,7 @@
 
 # TODO MAKE SHELL CLANG STENV
 let
-  toolchain = pkgs.llvmPackages_20.stdenv;
+  toolchain = pkgs.llvmPackages_latest.stdenv;
 in
 toolchain.mkDerivation {
   pname = "my-cpp-project";
