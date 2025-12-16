@@ -1,14 +1,14 @@
 {
   pkgs,
   lib,
+  seastar,
   ...
 }:
 
-# TODO MAKE SHELL CLANG STENV
 let
-  toolchain = pkgs.llvmPackages_latest.stdenv;
+  llvm = pkgs.llvmPackages_latest;
 in
-toolchain.mkDerivation {
+llvm.stdenv.mkDerivation {
   pname = "my-cpp-project";
   version = "0.1.0";
 
@@ -17,16 +17,28 @@ toolchain.mkDerivation {
     "^include.*"
     "^CMakeLists.txt"
   ];
-  nativeBuildInputs = [
-    pkgs.cmake
-    pkgs.ninja
+
+  nativeBuildInputs = with pkgs; [
+    cmake
+    ninja
+    pkg-config
+    capnproto
+    llvm.clang-tools
+  ];
+
+  buildInputs = [
+    seastar
+    pkgs.abseil-cpp
+    # pkgs.boost
   ];
 
   cmakeFlags = [
-    "-DCMAKE_C_COMPILER=${toolchain.cc}/bin/clang"
-    "-DCMAKE_CXX_COMPILER=${toolchain.cc}/bin/clang++"
+    "-DCMAKE_C_COMPILER=${llvm.stdenv.cc}/bin/clang"
+    "-DCMAKE_CXX_COMPILER=${llvm.stdenv.cc}/bin/clang++"
   ];
 
-  # Runtime dependencies would go in buildInputs
-  # buildInputs = [];
+  shellHook = ''
+    export CC=${llvm.stdenv.cc}/bin/clang
+    export CXX=${llvm.stdenv.cc}/bin/clang++
+  '';
 }

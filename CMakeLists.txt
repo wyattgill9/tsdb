@@ -12,4 +12,10 @@ if(CMAKE_EXPORT_COMPILE_COMMANDS)
       ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 endif()
 
+find_package(Seastar REQUIRED)
+find_package(absl REQUIRED)
+find_package(CapnProto REQUIRED)
+
 add_executable(tsdb src/main.cc)
+
+target_link_libraries(tsdb PRIVATE Seastar::seastar)
