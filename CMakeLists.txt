@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
+
+# NixOS clangd fix
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 if(CMAKE_EXPORT_COMPILE_COMMANDS)
   set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES 
@@ -13,9 +15,14 @@ if(CMAKE_EXPORT_COMPILE_COMMANDS)
 endif()
 
 find_package(Seastar REQUIRED)
-find_package(absl REQUIRED)
-find_package(CapnProto REQUIRED)
+# find_package(absl REQUIRED)
+# find_package(CapnProto REQUIRED)
+# find_package(glaze REQUIRED)
+
 
 add_executable(tsdb src/main.cc)
 
-target_link_libraries(tsdb PRIVATE Seastar::seastar)
+target_link_libraries(tsdb PRIVATE
+  Seastar::seastar
+  # glaze::glaze
+)

@@ -29,6 +29,7 @@ llvm.stdenv.mkDerivation {
   buildInputs = [
     seastar
     pkgs.abseil-cpp
+    pkgs.glaze
     # pkgs.boost
   ];
 

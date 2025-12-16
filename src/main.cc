@@ -1,11 +1,15 @@
-#include <seastar/core/app-template.hh>
-#include <seastar/core/reactor.hh>
 #include <iostream>
 
-int main(int argc, char** argv) {
+#include <seastar/core/app-template.hh>
+#include <seastar/core/reactor.hh>
+
+#include "toolkit.hh"
+
+auto main(int argc, char** argv) -> i32 {
     seastar::app_template app;
+
     app.run(argc, argv, [] {
-            std::cout << "Hello world\n";
+            std::cout << seastar::smp::count << "\n";
             return seastar::make_ready_future<>();
     });
 }
