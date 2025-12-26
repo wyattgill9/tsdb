@@ -26,14 +26,14 @@ private:
     u64 bit_time;
 
     // types: (position, width)
-    static constexpr auto YEAR    = std::pair{0,  16};
-    static constexpr auto MONTH   = std::pair{16, 4};
-    static constexpr auto DAY     = std::pair{20, 5};
-    static constexpr auto HOUR    = std::pair{25, 5};
-    static constexpr auto MINUTE  = std::pair{30, 6};
-    static constexpr auto SECOND  = std::pair{36, 6};
-    static constexpr auto WEEKDAY = std::pair{42, 3};
-    static constexpr auto YEARDAY = std::pair{45, 9};
+    static constexpr auto YEAR    = std::pair { 0, 16 };
+    static constexpr auto MONTH   = std::pair {16,  4 };
+    static constexpr auto DAY     = std::pair {20,  5 };
+    static constexpr auto HOUR    = std::pair {25,  5 };
+    static constexpr auto MINUTE  = std::pair {30,  6 };
+    static constexpr auto SECOND  = std::pair {36,  6 };
+    static constexpr auto WEEKDAY = std::pair {42,  3 };
+    static constexpr auto YEARDAY = std::pair {45,  9 };
 
     [[nodiscard]] constexpr u64 get(std::pair<int, int> type) const {
         auto [pos, width] = type;
@@ -52,12 +52,12 @@ public:
     
     constexpr Time(u16 y, u8 mon, u8 d, u8 h = 0, u8 min = 0, u8 s = 0) 
         : bit_time(
-              pack(YEAR, y)
-            | pack(MONTH, mon)
-            | pack(DAY, d)
-            | pack(HOUR, h)
-            | pack(MINUTE, min)
-            | pack(SECOND, s)
+                pack(YEAR, y)
+              | pack(MONTH, mon)
+              | pack(DAY, d)
+              | pack(HOUR, h)
+              | pack(MINUTE, min)
+              | pack(SECOND, s)
         ) {}
 
     [[nodiscard]] constexpr auto year   () const -> u64 { return get(YEAR   ); }
@@ -112,7 +112,6 @@ public:
 template<typename T>
 concept isValidTimeSeries = requires (T t) {
     { t.time   } -> std::convertible_to<Time>;
-    { t.active } -> std::convertible_to<bool>; // isPoolable
 };
 
 template<isValidTimeSeries... Ts>
@@ -141,7 +140,7 @@ public:
 };
 
 // u64 is just simple time idk
-struct SimpleDataPoint : PoolObj {
+struct SimpleDataPoint {
     sstring    name;
     tsdb::Time time;
 
