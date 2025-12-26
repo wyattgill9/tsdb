@@ -36,3 +36,40 @@ using sstring_view = std::string_view;
 // ---- Pool ----
 // --------------
 
+template <typename T, size_type Capacity>
+struct FixedFreelist {
+    static_assert(sizeof(T) >= sizeof(T*),
+                  "T must be at least as large as a pointer for freelist storage");
+    static_assert(alignof(T) >= alignof(T*),
+                  "T must have at least pointer alignment for freelist storage");
+
+    struct Slot {
+        alignas(T) std::byte storage[sizeof(T)];
+    };
+
+    Slot  slots_[Capacity];
+    T*    free_head_;
+
+    constexpr FixedFreelist()
+        : free_head_(nullptr)
+    {
+        for (size_type i = Capacity; i > 0; --i) {
+            size_type idx = i - 1;
+            T*        p   = reinterpret_cast<T*>(slots_[idx].storage);
+           *reinterpret_cast<T**>(p) = free_head_;
+            free_head_                = p;
+        }
+    }
+
+    [[nodiscard]] constexpr auto allocate() -> T* {
+        if (UNLIKELY(!free_head_)) return nullptr;
+        T* p        = free_head_;
+        free_head_  = *reinterpret_cast<T**>(p);
+        return p;
+    }
+
+    constexpr auto deallocate(T* p) -> void {
+       *reinterpret_cast<T**>(p) = free_head_;
+        free_head_               = p;
+    }
+};
