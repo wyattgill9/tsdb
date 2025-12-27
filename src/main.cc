@@ -3,76 +3,41 @@
 
 #include "toolkit.hh"
 
+#include <algorithm>
+#include <ctime>
+#include <exception>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <time.h>
 
 namespace tsdb {
 
 struct Time {
-private:
-    // year:    16 bits [0-15]   (allows 0-65535)
-    // month:   4 bits  [16-19]  (allows 0-15,  we use 1-12)
-    // day:     5 bits  [20-24]  (allows 0-31)
-    // hour:    5 bits  [25-29]  (allows 0-31,  we use 0-23)
-    // minute:  6 bits  [30-35]  (allows 0-63,  we use 0-59)
-    // second:  6 bits  [36-41]  (allows 0-63,  we use 0-59)
-    // weekday: 3 bits  [42-44]  (allows 0-7,   we use 1-7)
-    // yearday: 9 bits  [45-53]  (allows 0-511, we use 1-366)
-    // unused:  10 bits [54-63]
+    i64 ns; // ns sense unix epoch (UTC)
 
-    u64 bit_time;
+    constexpr auto hour() -> i64 {
+        return ns / 3'600'000'000'000LL;
+    };
 
-    // types: (position, width)
-    static constexpr auto YEAR    = std::pair { 0, 16 };
-    static constexpr auto MONTH   = std::pair {16,  4 };
-    static constexpr auto DAY     = std::pair {20,  5 };
-    static constexpr auto HOUR    = std::pair {25,  5 };
-    static constexpr auto MINUTE  = std::pair {30,  6 };
-    static constexpr auto SECOND  = std::pair {36,  6 };
-    static constexpr auto WEEKDAY = std::pair {42,  3 };
-    static constexpr auto YEARDAY = std::pair {45,  9 };
-
-    [[nodiscard]] constexpr u64 get(std::pair<int, int> type) const {
-        auto [pos, width] = type;
-        return (bit_time >> pos) & ((1ULL << width) - 1);
+    static constexpr auto from_hour(i64 h) -> Time {
+        return Time { h * 3'600'000'000'000LL };
     }
 
-    constexpr u64 pack(std::pair<int, int> type, u64 val) const {
-        auto [pos, width] = type;
-        u64 mask = ((1ULL << width) - 1);
-        return (val & mask) << pos;
-    }
-
-public:
-    constexpr Time() : bit_time(0) {}
-    constexpr Time(u64 raw) : bit_time(raw) {}
     
-    constexpr Time(u16 y, u8 mon, u8 d, u8 h = 0, u8 min = 0, u8 s = 0) 
-        : bit_time(
-                pack(YEAR, y)
-              | pack(MONTH, mon)
-              | pack(DAY, d)
-              | pack(HOUR, h)
-              | pack(MINUTE, min)
-              | pack(SECOND, s)
-        ) {}
-
-    [[nodiscard]] constexpr auto year   () const -> u64 { return get(YEAR   ); }
-    [[nodiscard]] constexpr auto month  () const -> u64 { return get(MONTH  ); }
-    [[nodiscard]] constexpr auto day    () const -> u64 { return get(DAY    ); }
-    [[nodiscard]] constexpr auto hour   () const -> u64 { return get(HOUR   ); }
-    [[nodiscard]] constexpr auto minute () const -> u64 { return get(MINUTE ); }
-    [[nodiscard]] constexpr auto second () const -> u64 { return get(SECOND ); }
-    [[nodiscard]] constexpr auto weekday() const -> u64 { return get(WEEKDAY); }
-    [[nodiscard]] constexpr auto yearday() const -> u64 { return get(YEARDAY); }
-
-    [[nodiscard]] constexpr auto inner() const -> u64 { return bit_time; }
-
-    [[nodiscard]] friend constexpr auto operator<=>(const Time&, const Time&) = default;
+    constexpr auto operator<=>(const Time&) const = default;
 };
+
+inline Time now() {
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+
+    return Time {
+        ts.tv_sec * 1'000'000'000LL + ts.tv_nsec
+    };
+}
 
 template<typename T>
 struct TimeSeries {
@@ -81,7 +46,7 @@ private:
 
 public:
     template<typename U>
-    auto append(U&& args) -> void {
+    auto append( U&& args ) -> void {
         points.emplace_back(std::forward<U>(args));
     }
 
@@ -98,11 +63,10 @@ public:
 
 template<typename ...Ts>
 struct Segment {
-private:
     // map (type) -> timeseries of (type)
+    Time hour;
     std::tuple<TimeSeries<Ts>...> _series_map;
 
-public:
     template<typename T>
     constexpr inline auto get_series() -> TimeSeries<T>& {
         return std::get<TimeSeries<T>>(_series_map);
@@ -117,17 +81,35 @@ concept isValidTimeSeries = requires (T t) {
 template<isValidTimeSeries... Ts>
 struct TSDB {
 private:
-    std::unordered_map<u64, Segment<Ts...>> _segment_map;
+    // map (hour) -> (Segment); Segmant -> map (type) -> (list of points of type)
+    // std::unordered_map<u64, Segment<Ts...>> _segment_map;
+    std::vector<Segment<Ts...>> _segment_map; // sorted
 
 public:
     template<typename U>
-    auto append(U&& data_point) {
+    auto append( U&& data_point ) {
         using T = std::remove_cvref_t<U>;
-       
-        Segment<Ts...>& seg = _segment_map.try_emplace(data_point.time.hour()).first->second;
+    
+        auto point_hour = Time::from_hour(data_point.time.hour());
+    
+        auto seg_it = std::lower_bound(
+                _segment_map.begin(),
+                _segment_map.end(),
+                point_hour,
+                [](const Segment<Ts...>& seg, const Time& t) {
+                    return seg.hour < t;
+                }
+            );
 
-        seg
-            .template get_series<T>()
+        if(seg_it == _segment_map.end() || seg_it->hour > point_hour) {
+            seg_it = _segment_map.insert(seg_it, Segment<Ts...>{
+                .hour = point_hour,
+                ._series_map = {}
+            });
+        }
+
+        seg_it
+            ->template get_series<T>()
             .append(std::forward<U>(data_point));
     }
 
@@ -139,12 +121,11 @@ public:
 
 };
 
-// u64 is just simple time idk
 struct SimpleDataPoint {
     sstring    name;
     tsdb::Time time;
 
-    i32        data;
+    int        data;
 };
 
 auto main() -> int {
@@ -152,7 +133,7 @@ auto main() -> int {
 
     SimpleDataPoint d {
         .name = "point_1",
-        .time = 100,
+        .time = tsdb::now(),
         .data = 5,  
     };
 

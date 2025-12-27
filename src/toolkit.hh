@@ -1,12 +1,8 @@
 // ( =< C++23 ) Dev toolkit
 
-#include <bitset>
 #include <cstdint>
-#include <memory>
 #include <string>
-#include <array>
 #include <cassert>
-#include <print>
 
 constexpr static bool DEBUG = false;
 
