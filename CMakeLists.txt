@@ -7,6 +7,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+add_link_options("-fuse-ld=lld")
+
 find_package(absl CONFIG REQUIRED)
 find_package(benchmark REQUIRED)
 

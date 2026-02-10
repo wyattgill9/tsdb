@@ -73,9 +73,9 @@ public:
             .kind = TypeKind::STRUCT,
         };
 
-        type.alignment = 8;
-        type.size      = 8;
-        type.fields.push_back({ "timestamp_ns", { static_cast<u32>(TypeKind::TIMESTAMP_NS) }, 0 });
+        type.alignment = 1;
+        type.size      = 0;
+        // type.fields.push_back({ "timestamp_ns", { static_cast<u32>(TypeKind::TIMESTAMP_NS) }, 0 });
 
         for (auto&& [field_name, handle] : fields) {
             const auto& ft = meta_of(handle);
@@ -106,8 +106,7 @@ private:
 
         constexpr u32 sizes[] = {
             1, 2, 4, 8,
-            1, 2, 4, 8,
-            4, 8,
+            1, 2, 4, 8, 4, 8,
             1,
             8,
         };
@@ -228,8 +227,8 @@ public:
             return T{};
         }
 
-        T result {};
-        auto* dst = reinterpret_cast<std::byte*>(&result);
+        T result{};
+        std::byte* dst = reinterpret_cast<std::byte*>(&result);
         table->read_row(0, dst);
 
         return result;
@@ -262,17 +261,19 @@ private:
             return it->second;
         }
 
-        auto&& fields = schema_.meta_of(type).fields;
-
-        auto offsets = fields
-            | std::views::transform([](auto& f) { return f.offset; })
-            | std::ranges::to<std::vector<u32>>();
-
-        auto sizes = fields
-            | std::views::transform([&](auto& f) { return schema_.meta_of(f.type).size; })
-            | std::ranges::to<std::vector<size_t>>();
-
-        return tables_.emplace(type, Table {std::move(sizes), {offsets.begin(), offsets.end()}}).first->second;
+        const std::vector<Schema::Field>& fields = schema_.meta_of(type).fields;
+    
+        std::vector<size_t> offsets;
+        std::vector<size_t> sizes;
+        offsets.reserve(fields.size());
+        sizes.reserve(fields.size());
+    
+        for (const Schema::Field& field : fields) {
+            offsets.push_back(field.offset);
+            sizes.push_back((schema_.meta_of(field.type).size));
+        }
+    
+        return tables_.emplace(type, Table {std::move(sizes), std::move(offsets)}).first->second;
     }
 
     Schema schema_;
